@@ -5,6 +5,10 @@ import (
     "strings"
     "bufio"
     "os"
+	"net/http"
+	"io"
+	"encoding/json"
+	"errors"
 )
 
 type cliCommand struct {
@@ -14,8 +18,20 @@ type cliCommand struct {
 }
 
 type config struct {
-	nextUrl	string
 	prevUrl	string
+	nextUrl	string
+}
+
+type locationsResponse struct {
+	Count	int			`json:"count"`
+ 	Next	string		`json:"next"`
+	Prev	string		`json:"previous"`
+	Results	[]location	`json:"results"`
+}
+
+type location struct {
+	Name	string	`json:"name"`
+	Url		string	`json:"url"`
 }
 
 var commands map[string]cliCommand
@@ -91,15 +107,63 @@ func commandHelp(conf *config) error {
 }
 
 func commandMap(conf *config) error {
-	// TODO: get request from next field
+	locations, err := queryPokedexApi(conf.nextUrl)
+	if err != nil {
+		return err
+	}
+
+	conf.nextUrl = locations.Next
+	conf.prevUrl = locations.Prev
+
+	for _, loc := range locations.Results {
+		fmt.Println(loc.Name)
+	}
 
 	return nil
 }
 
 func commandMapBack(conf *config) error {
-	if config.prevUrl == "" {
-		fmt.Println("you're on the first page")
+	if len(conf.prevUrl) == 0 {
+		return errors.New("you're on the first page")
+	}
+
+	locations, err := queryPokedexApi(conf.prevUrl)
+	if err != nil {
+		return err
+	}
+
+	conf.nextUrl = locations.Next
+	conf.prevUrl = locations.Prev
+
+	for _, loc := range locations.Results {
+		fmt.Println(loc.Name)
 	}
 
 	return nil
+}
+
+func queryPokedexApi(url string) (*locationsResponse, error) {
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode > 299 {
+		return nil, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
+	}
+
+	var locations locationsResponse
+	err = json.Unmarshal(body, &locations)
+	if err != nil {
+		return nil, fmt.Errorf("Unmarshal failed: %v", err)
+	}
+
+	return &locations, nil
 }
