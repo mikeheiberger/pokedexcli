@@ -400,6 +400,11 @@ func initCommands() {
 			description:	"Gives the name, height, weight, stats, and type(s) of a pokemon in your pokedex",
 			callback:		commandInspect,
 		},
+		"pokedex" : {
+			name:			"pokedex",
+			description:	"Displays the list of all pokemon you've caught",
+			callback:		commandPokedex,
+		},
     }
 }
 
@@ -579,6 +584,19 @@ func commandInspect(conf *config, param string) error {
 	fmt.Println("Types:")
 	for _, poketype := range pokemon.Types {
 		fmt.Printf("\t- %s\n", poketype.Type.Name)
+	}
+
+	return nil
+}
+
+func commandPokedex(conf *config, param string) error {
+	if len(pokedex) == 0 {
+		return errors.New("You haven't caught any Pokemon!")
+	}
+
+	fmt.Println("Your Pokedex:")
+	for key, _ := range pokedex {
+		fmt.Printf("\t- %s\n", key)
 	}
 
 	return nil
