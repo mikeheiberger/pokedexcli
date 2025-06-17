@@ -6,7 +6,10 @@ import (
     "bufio"
     "os"
 	"errors"
+	"time"
+	"encoding/json"
 	"github.com/mikeheiberger/pokedexcli/internal/pokedexapi"
+	"github.com/mikeheiberger/pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
@@ -20,7 +23,21 @@ type config struct {
 	nextUrl	string
 }
 
+type LocationsResponse struct {
+	Count	int			`json:"count"`
+ 	Next	string		`json:"next"`
+	Prev	string		`json:"previous"`
+	Results	[]Location	`json:"results"`
+}
+
+type Location struct {
+	Name	string	`json:"name"`
+	Url		string	`json:"url"`
+}
+
 var commands map[string]cliCommand
+
+var cache *pokecache.Cache
 
 func initCommands() {
     commands = map[string]cliCommand{
@@ -47,8 +64,12 @@ func initCommands() {
     }
 }
 
+
 func main() {
     initCommands()
+
+	cacheDur, _ := time.ParseDuration("5s")
+	cache = pokecache.NewCache(cacheDur)
 
 	configuration := config{
 		"",
@@ -93,19 +114,19 @@ func commandHelp(conf *config) error {
 }
 
 func commandMap(conf *config) error {
-	locations, err := pokedexapi.QueryPokedexApi(conf.nextUrl)
-	if err != nil {
-		return err
+	jsonData, ok := cache.Get(conf.nextUrl)
+	if !ok {
+		var err error
+		jsonData, err = pokedexapi.QueryPokedexApi(conf.nextUrl)
+		if err != nil {
+			return err
+		}
+
+		cache.Add(conf.nextUrl, jsonData)
 	}
 
-	conf.nextUrl = locations.Next
-	conf.prevUrl = locations.Prev
-
-	for _, loc := range locations.Results {
-		fmt.Println(loc.Name)
-	}
-
-	return nil
+	err := printLocationData(conf, jsonData)
+	return err
 }
 
 func commandMapBack(conf *config) error {
@@ -113,9 +134,26 @@ func commandMapBack(conf *config) error {
 		return errors.New("you're on the first page")
 	}
 
-	locations, err := pokedexapi.QueryPokedexApi(conf.prevUrl)
+	jsonData, ok := cache.Get(conf.prevUrl)
+	if !ok {
+		var err error
+		jsonData, err = pokedexapi.QueryPokedexApi(conf.prevUrl)
+		if err != nil {
+			return err
+		}
+
+		cache.Add(conf.prevUrl, jsonData)
+	}
+
+	err := printLocationData(conf, jsonData)
+	return err
+}
+
+func printLocationData(conf *config, jsonData []byte) error {
+	var locations LocationsResponse
+	err := json.Unmarshal(jsonData, &locations)
 	if err != nil {
-		return err
+		return fmt.Errorf("Unmarshal failed: %v", err)
 	}
 
 	conf.nextUrl = locations.Next

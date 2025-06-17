@@ -4,22 +4,10 @@ import(
     "fmt"
 	"net/http"
 	"io"
-	"encoding/json"
 )
 
-type LocationsResponse struct {
-	Count	int			`json:"count"`
- 	Next	string		`json:"next"`
-	Prev	string		`json:"previous"`
-	Results	[]Location	`json:"results"`
-}
 
-type Location struct {
-	Name	string	`json:"name"`
-	Url		string	`json:"url"`
-}
-
-func QueryPokedexApi(url string) (*LocationsResponse, error) {
+func QueryPokedexApi(url string) ([]byte, error) {
 	res, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -36,11 +24,5 @@ func QueryPokedexApi(url string) (*LocationsResponse, error) {
 		return nil, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
 	}
 
-	var locations LocationsResponse
-	err = json.Unmarshal(body, &locations)
-	if err != nil {
-		return nil, fmt.Errorf("Unmarshal failed: %v", err)
-	}
-
-	return &locations, nil
+	return body, nil
 }
