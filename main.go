@@ -27,12 +27,10 @@ type LocationsResponse struct {
 	Count	int			`json:"count"`
  	Next	string		`json:"next"`
 	Prev	string		`json:"previous"`
-	Results	[]Location	`json:"results"`
-}
-
-type Location struct {
-	Name	string	`json:"name"`
-	Url		string	`json:"url"`
+	Results	[]struct {
+		Name	string	`json:"name"`
+		Url		string	`json:"url"`
+	}`json:"results"`
 }
 
 var commands map[string]cliCommand
@@ -66,10 +64,11 @@ func initCommands() {
 
 
 func main() {
+	const interval = 5 * time.Minute
+
     initCommands()
 
-	cacheDur, _ := time.ParseDuration("5s")
-	cache = pokecache.NewCache(cacheDur)
+	cache = pokecache.NewCache(interval)
 
 	configuration := config{
 		"",
